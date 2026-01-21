@@ -10,12 +10,26 @@ use NFePHP\Common\Signer;
 
 class RestCurl extends RestBase
 {
-    const URL_SEFIN_HOMOLOGACAO = 'https://sefin.producaorestrita.nfse.gov.br/SefinNacional';
-    const URL_SEFIN_PRODUCAO = 'https://sefin.nfse.gov.br/sefinnacional';
-    const URL_ADN_HOMOLOGACAO = 'https://adn.producaorestrita.nfse.gov.br';
-    const URL_ADN_PRODUCAO = 'https://adn.nfse.gov.br';
-    const URL_NFSE_HOMOLOGACAO = 'https://www.producaorestrita.nfse.gov.br/EmissorNacional';
-    const URL_NFSE_PRODUCAO = 'https://www.nfse.gov.br/EmissorNacional';
+    const DEFAULT_URLS = [
+        "sefin_homologacao" => "https://sefin.producaorestrita.nfse.gov.br/SefinNacional",
+        "sefin_producao" => "https://sefin.nfse.gov.br/sefinnacional",
+        "adn_homologacao" => "https://adn.producaorestrita.nfse.gov.br",
+        "adn_producao" => "https://adn.nfse.gov.br",
+        "nfse_homologacao" => "https://www.producaorestrita.nfse.gov.br/EmissorNacional",
+        "nfse_producao" => "https://www.nfse.gov.br/EmissorNacional"
+    ];
+    const DEFAULT_OPERATIONS = [
+        "consultar_nfse" => "nfse/{chave}",
+        "consultar_dps" => "dps/{chave}",
+        "consultar_eventos" => "nfse/{chave}/eventos/{tipoEvento}/{nSequencial}",
+        "consultar_danfse" => "danfse/{chave}",
+        "consultar_danfse_nfse_certificado" => "Certificado",
+        "consultar_danfse_nfse_download" => "Notas/Download/DANFSe/{chave}",
+        "emitir_nfse" => "nfse",
+        "cancelar_nfse" => "nfse/{chave}/eventos"
+    ];
+    private $URLS = [];
+    private $OPERATIONS = [];
     private mixed $config;
     private string $url_api;
     private $connection_timeout = 30;
@@ -37,6 +51,41 @@ class RestCurl extends RestBase
         $this->config = json_decode($config);
         $this->certificate = $cert;
         //        $this->wsobj = $this->loadWsobj($this->config->cmun);
+
+        $configFile = __DIR__ . '/../storage/prefeituras.json';
+        $this->loadConfigOverrides($configFile, $this->config->prefeitura);
+        
+    }
+
+    private function loadConfigOverrides($jsonFile, $context): void 
+    {
+        $json = json_decode(file_get_contents($jsonFile) ?: "", true);
+
+        if (!is_array($json)) {
+            throw new RuntimeException("JSON inválido em $jsonFile");
+        }
+
+        $contextData = $json[$context] ?: [];
+
+        $this->URLS = $this->mergeDefaults(self::DEFAULT_URLS, $contextData['urls'] ?: []);
+
+        $this->OPERATIONS = $this->mergeDefaults(self::DEFAULT_OPERATIONS, $contextData['operations'] ?: []);
+
+    }
+
+    private function mergeDefaults(array $defaults, array $overrides): array
+    {
+        foreach ($overrides as $key => $value) {
+            if (array_key_exists($key, $defaults)) {
+                $defaults[$key] = $value;
+            }
+        }
+        return $defaults;
+    }
+
+    public function getOperation($operation)
+    {
+        return $this->OPERATIONS[$operation];
     }
 
     /**
@@ -56,7 +105,11 @@ class RestCurl extends RestBase
                 "Content-length: $msgSize"
             ];
             $oCurl = curl_init();
-            curl_setopt($oCurl, CURLOPT_URL, $this->url_api . '/' . $operacao);
+            $api_url = $this->url_api;
+            if (strlen($operacao) > 0){
+                $api_url .= '/' . $operacao;
+            }
+            curl_setopt($oCurl, CURLOPT_URL, $api_url);
             curl_setopt($oCurl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
             curl_setopt($oCurl, CURLOPT_CONNECTTIMEOUT, $this->connection_timeout);
             curl_setopt($oCurl, CURLOPT_TIMEOUT, $this->timeout);
@@ -138,7 +191,11 @@ class RestCurl extends RestBase
             ];
             //            $this->requestHead = implode("\n", $parameters);
             $oCurl = curl_init();
-            curl_setopt($oCurl, CURLOPT_URL, $this->url_api . '/' . $operacao);
+            $api_url = $this->url_api;
+            if (strlen($operacao) > 0){
+                $api_url .= '/' . $operacao;
+            }
+            curl_setopt($oCurl, CURLOPT_URL, $api_url);
             curl_setopt($oCurl, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
             curl_setopt($oCurl, CURLOPT_CONNECTTIMEOUT, $this->connection_timeout);
             curl_setopt($oCurl, CURLOPT_TIMEOUT, $this->timeout);
@@ -220,22 +277,21 @@ class RestCurl extends RestBase
     {
         switch ($origem) {
             case 1: // SEFIN
-            default:
-                $this->url_api = self::URL_SEFIN_HOMOLOGACAO;
+                $this->url_api = $this->URLS['sefin_homologacao'];
                 if ($this->config->tpamb === 1) {
-                    $this->url_api = self::URL_SEFIN_PRODUCAO;
+                    $this->url_api = $this->URLS['sefin_producao'];
                 }
                 break;
             case 2: // ADN
-                $this->url_api = self::URL_ADN_HOMOLOGACAO;
+                $this->url_api = $this->URLS['adn_homologacao'];
                 if ($this->config->tpamb === 1) {
-                    $this->url_api = self::URL_ADN_PRODUCAO;
+                    $this->url_api = $this->URLS['adn_producao'];
                 }
                 break;
             case 3: // NFSE
-                $this->url_api = self::URL_NFSE_HOMOLOGACAO;
+                $this->url_api = $this->URLS['nfse_homologacao'];
                 if ($this->config->tpamb === 1) {
-                    $this->url_api = self::URL_NFSE_PRODUCAO;
+                    $this->url_api = $this->URLS['nfse_producao'];
                 }
                 break;
         }
