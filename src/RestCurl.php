@@ -54,10 +54,9 @@ class RestCurl extends RestBase
 
         $configFile = __DIR__ . '/../storage/prefeituras.json';
         $this->loadConfigOverrides($configFile, $this->config->prefeitura);
-        
     }
 
-    private function loadConfigOverrides($jsonFile, $context): void 
+    private function loadConfigOverrides($jsonFile, $context): void
     {
         $json = json_decode(file_get_contents($jsonFile) ?: "", true);
 
@@ -65,12 +64,11 @@ class RestCurl extends RestBase
             throw new RuntimeException("JSON inválido em $jsonFile");
         }
 
-        $contextData = $json[$context] ?: [];
+        $contextData = $json[$context] ?? [];
 
-        $this->URLS = $this->mergeDefaults(self::DEFAULT_URLS, $contextData['urls'] ?: []);
+        $this->URLS = $this->mergeDefaults(self::DEFAULT_URLS, $contextData['urls'] ?? []);
 
-        $this->OPERATIONS = $this->mergeDefaults(self::DEFAULT_OPERATIONS, $contextData['operations'] ?: []);
-
+        $this->OPERATIONS = $this->mergeDefaults(self::DEFAULT_OPERATIONS, $contextData['operations'] ?? []);
     }
 
     private function mergeDefaults(array $defaults, array $overrides): array
@@ -106,7 +104,7 @@ class RestCurl extends RestBase
             ];
             $oCurl = curl_init();
             $api_url = $this->url_api;
-            if (strlen($operacao) > 0){
+            if (strlen($operacao) > 0) {
                 $api_url .= '/' . $operacao;
             }
             curl_setopt($oCurl, CURLOPT_URL, $api_url);
@@ -139,7 +137,7 @@ class RestCurl extends RestBase
                 curl_setopt($oCurl, CURLOPT_POST, 1);
                 curl_setopt($oCurl, CURLOPT_POSTFIELDS, $data);
                 curl_setopt($oCurl, CURLOPT_HTTPHEADER, $parameters);
-            }elseif ($origem === 3 && !empty($this->cookies)) {
+            } elseif ($origem === 3 && !empty($this->cookies)) {
                 $parameters[] = 'Cookie: ' . $this->cookies;
                 curl_setopt($oCurl, CURLOPT_HTTPHEADER, $parameters);
             }
@@ -157,9 +155,9 @@ class RestCurl extends RestBase
             $this->responseHead = trim(substr($response, 0, $headsize));
             $this->responseBody = trim(substr($response, $headsize));
             //detecta redirect, conseguiu logar com certificado na origem 3 e pega cookies
-            if($origem==3 and $httpcode==302) {
+            if ($origem == 3 and $httpcode == 302) {
                 $this->captureCookies($this->responseHead, $origem);
-                return ['sucesso'=>true];
+                return ['sucesso' => true];
             }
             if ($contentType == 'application/pdf') {
                 return $this->responseBody;
@@ -192,7 +190,7 @@ class RestCurl extends RestBase
             //            $this->requestHead = implode("\n", $parameters);
             $oCurl = curl_init();
             $api_url = $this->url_api;
-            if (strlen($operacao) > 0){
+            if (strlen($operacao) > 0) {
                 $api_url .= '/' . $operacao;
             }
             curl_setopt($oCurl, CURLOPT_URL, $api_url);
@@ -295,7 +293,6 @@ class RestCurl extends RestBase
                 }
                 break;
         }
-
     }
 
     private function captureCookies(string $headers, int $origem): void
